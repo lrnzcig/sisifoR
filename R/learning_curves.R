@@ -4,6 +4,9 @@
 # - glmnet
 # - tree (decision trees)
 # - party (decision trees)
+#
+# TODO refactoring so that control is common for the 3 of them
+#      (refactor de errors matrix for using lapply easily)
 ################################
 
 
@@ -13,29 +16,28 @@
 # - applies regularization at every step,
 #   selects lambda.1se
 ################################
-learning_curve_glmnet = function(df, formula, results_column_name, number_of_steps=5, seed=13) {
+learning_curve_glmnet = function(input_data, formula, results_column_name, number_of_steps=5, seed=13) {
   set.seed(seed)
-  folds.0 <- df
   threshold <- 0.5
   errors=matrix(NA, number_of_steps, 2)
-  folds.0$ALEATORIO <- floor(runif(dim(folds.0)[1], min=0, max=number_of_steps+2))
+  rand <- floor(runif(dim(input_data)[1], min=0, max=number_of_steps+1))
   
   for (step in 0:(number_of_steps-1)) {
     print(paste("step", step))
     
-    folds.0.x <- model.matrix(formula, data=folds.0)
-    folds.0.x.train <- folds.0.x[folds.0$ALEATORIO <= step,]
-    folds.0.x.test <- folds.0.x[folds.0$ALEATORIO > step+1,]
-    folds.0.y.train <- folds.0[folds.0$ALEATORIO <= step, results_column_name]
-    folds.0.y.test <- folds.0[folds.0$ALEATORIO > step+1, results_column_name]
+    folds.x <- model.matrix(formula, data=input_data)
+    folds.x.train <- folds.x[rand <= step,]
+    folds.x.test <- folds.x[rand > step,]
+    folds.y.train <- input_data[rand <= step, results_column_name]
+    folds.y.test <- input_data[rand > step, results_column_name]
     
-    folds.0.cv.lasso=cv.glmnet(folds.0.x.train, folds.0.y.train, alpha=1, family="binomial")
-    folds.0.cv.lasso.preds.train = predict(folds.0.cv.lasso, folds.0.x.train, s=folds.0.cv.lasso$lambda.1se, type="response")
-    folds.0.cv.lasso.preds.train.conv = ifelse(folds.0.cv.lasso.preds.train > threshold, TRUE, FALSE)
-    errors[step+1, 1] <- mean(folds.0.cv.lasso.preds.train.conv != folds.0.y.train)
-    folds.0.cv.lasso.preds.test = predict(folds.0.cv.lasso, folds.0.x.test, s=folds.0.cv.lasso$lambda.1se, type="response")
-    folds.0.cv.lasso.preds.test.conv = ifelse(folds.0.cv.lasso.preds.test > threshold, TRUE, FALSE)
-    errors[step+1, 2] <- mean(folds.0.cv.lasso.preds.test.conv != folds.0.y.test)
+    folds.cv.lasso=cv.glmnet(folds.x.train, folds.y.train, alpha=1, family="binomial")
+    folds.cv.lasso.preds.train = predict(folds.cv.lasso, folds.x.train, s=folds.cv.lasso$lambda.1se, type="response")
+    folds.cv.lasso.preds.train.conv = ifelse(folds.cv.lasso.preds.train > threshold, TRUE, FALSE)
+    errors[step+1, 1] <- mean(folds.cv.lasso.preds.train.conv != folds.y.train)
+    folds.cv.lasso.preds.test = predict(folds.cv.lasso, folds.x.test, s=folds.cv.lasso$lambda.1se, type="response")
+    folds.cv.lasso.preds.test.conv = ifelse(folds.cv.lasso.preds.test > threshold, TRUE, FALSE)
+    errors[step+1, 2] <- mean(folds.cv.lasso.preds.test.conv != folds.y.test)
   }
   par(mfrow=c(1,1))
   plot(errors[,1], type="l", col="blue", ylim=c(min(errors), max(errors)))
@@ -50,28 +52,32 @@ learning_curve_glmnet = function(df, formula, results_column_name, number_of_ste
 # learning curves tree
 # - best selects number of terminal nodes
 ################################
-learning_curve_tree = function(df, formula, results_column_name, number_of_steps=5, seed=13, best=NULL) {
+learning_curve_tree = function(input_data, tree_formula, results_column_name, number_of_steps=5, seed=13, best=NULL,
+                               loss=matrix(c(0, 1, 1, 0), nrow=2, ncol=2)) {
   set.seed(seed)
-  folds.0 <- df
-  threshold <- 0.5
+  threshold = 0.5
   errors=matrix(NA, number_of_steps, 2)
-  folds.0$ALEATORIO <- floor(runif(dim(folds.0)[1], min=0, max=number_of_steps+2))
-  
+  rand <- floor(runif(dim(input_data)[1], min=0, max=number_of_steps+1))
+
   for (step in 0:(number_of_steps-1)) {
     print(paste("step", step))
-    folds.0.train <- folds.0[folds.0$ALEATORIO <= step,]
-    folds.0.test <- folds.0[folds.0$ALEATORIO > step+1,]
-    
-    tree.Apm <- tree(formula, data=folds.0.train, split="gini")
-    if (is.null(best)) {
-      prune.Apm.tree <- tree.Apm
-    } else {
-      prune.Apm.tree = prune.misclass(tree.Apm, best=best, loss=loss)
+    tree.obj <- tree(tree_formula, data=input_data[rand <= step,], split="gini")
+    pruned <- FALSE
+    if (! is.null(best)) {
+      terminal_nodes = dim(tree.obj$frame[tree.obj$frame$var == "<leaf>", ])[1]
+      if (best < terminal_nodes) {
+        prune.tree.obj = prune.misclass(tree.obj, best=best, loss=loss)
+        pruned = TRUE
+        preds.class.train = predict(prune.tree.obj, type="class", newdata=input_data[rand <= step,])
+        preds.class.test = predict(prune.tree.obj, type="class", newdata=input_data[rand > step,])
+      }
     }
-    prune.Apm.tree.preds.class <- predict(prune.Apm.tree, type="class")
-    errors[step+1, 1] <- mean(prune.Apm.tree.preds.class != folds.0.train[, results_column_name])
-    prune.Apm.tree.preds.class <- predict(prune.Apm.tree, type="class", newdata=folds.0.test)
-    errors[step+1, 2] <- mean(prune.Apm.tree.preds.class != folds.0.test[, results_column_name])
+    if (! pruned) {
+      preds.class.train = predict(tree.obj, type="class", newdata=input_data[rand <= step,])
+      preds.class.test = predict(tree.obj, type="class", newdata=input_data[rand > step,])
+    }
+    errors[step+1, 1] = mean(preds.class.train != input_data[rand <= step, results_column_name])
+    errors[step+1, 2] = mean(preds.class.test != input_data[rand > step, results_column_name])
   }
   par(mfrow=c(1,1))
   plot(errors[,1], type="l", col="blue", ylim=c(min(errors), max(errors)))
@@ -79,33 +85,33 @@ learning_curve_tree = function(df, formula, results_column_name, number_of_steps
   return(errors)
 }
 
+
 ################################
 # learning curves party
 # - ctree_control for complexity
 ################################
-learning_curve_party = function(df, formula, results_column_name, number_of_steps=5, seed=13, ctree_control=NULL) {
+learning_curve_party = function(input_data, formula, results_column_name, number_of_steps=5, seed=13, ctree_control=NULL) {
   set.seed(seed)
-  folds.0 <- df
   threshold <- 0.5
   errors=matrix(NA, number_of_steps, 2)
-  folds.0$ALEATORIO <- floor(runif(dim(folds.0)[1], min=0, max=number_of_steps+2))
+  rand <- floor(runif(dim(input_data)[1], min=0, max=number_of_steps+1))
   
   for (step in 0:(number_of_steps-1)) {
     print(paste("step", step))
-    folds.0.train <- folds.0[folds.0$ALEATORIO <= step,]
-    folds.0.test <- folds.0[folds.0$ALEATORIO > step+1,]
+    folds_train <- input_data[rand <= step,]
+    folds_test <- input_data[rand > step,]
     
     if (is.null(ctree_control)) {
-      party.Apm <- ctree(formula, data=folds.0.train)
+      party.tree <- ctree(formula, data=folds_train)
     } else {
-      party.Apm <- ctree(formula, data=folds.0.train, control=ctree_control)
+      party.tree <- ctree(formula, data=folds_train, control=ctree_control)
     }
-    party.Apm.preds <- predict(party.Apm)
-    party.Apm.preds.conv = ifelse(party.Apm.preds > threshold, TRUE, FALSE)
-    errors[step+1, 1] <- mean(party.Apm.preds.conv != folds.0.train[, results_column_name])
-    party.Apm.preds <- predict(party.Apm, newdata=folds.0.test)
-    party.Apm.preds.conv = ifelse(party.Apm.preds > threshold, TRUE, FALSE)
-    errors[step+1, 2] <- mean(party.Apm.preds.conv != folds.0.test[, results_column_name])
+    party.tree.preds <- predict(party.tree)
+    party.tree.preds.conv = ifelse(party.tree.preds > threshold, TRUE, FALSE)
+    errors[step+1, 1] <- mean(party.tree.preds.conv != folds_train[, results_column_name])
+    party.tree.preds <- predict(party.tree, newdata=folds_test)
+    party.tree.preds.conv = ifelse(party.tree.preds > threshold, TRUE, FALSE)
+    errors[step+1, 2] <- mean(party.tree.preds.conv != folds_test[, results_column_name])
   }
   par(mfrow=c(1,1))
   plot(errors[,1], type="l", col="blue", ylim=c(min(errors), max(errors)))
