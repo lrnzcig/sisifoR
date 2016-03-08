@@ -53,7 +53,7 @@ learning_curve_glmnet = function(input_data, formula, results_column_name, numbe
 # - best selects number of terminal nodes
 ################################
 learning_curve_tree = function(input_data, tree_formula, results_column_name, number_of_steps=5, seed=13, best=NULL,
-                               loss=matrix(c(0, 1, 1, 0), nrow=2, ncol=2)) {
+                               loss=matrix(c(0, 1, 1, 0), nrow=2, ncol=2), tree_control=NULL) {
   set.seed(seed)
   threshold = 0.5
   errors=matrix(NA, number_of_steps, 2)
@@ -61,7 +61,12 @@ learning_curve_tree = function(input_data, tree_formula, results_column_name, nu
 
   for (step in 0:(number_of_steps-1)) {
     print(paste("step", step))
-    tree.obj <- tree(tree_formula, data=input_data[rand <= step,], split="gini")
+    if (is.null(tree_control)) {
+      tree.obj <- tree(tree_formula, data=input_data[rand <= step,], split="gini")
+    } else {
+      tree.obj <- tree(tree_formula, data=input_data[rand <= step,], split="gini",
+                       control=tree_control)
+    }
     pruned <- FALSE
     if (! is.null(best)) {
       terminal_nodes = dim(tree.obj$frame[tree.obj$frame$var == "<leaf>", ])[1]
