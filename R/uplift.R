@@ -37,6 +37,8 @@ qini_from_data <- function(preds,
                            ideal_order_column_name="z",
                            results_column_name="y",
                            treat_column_name="ct",
+                           x_axis_ratio=FALSE,
+                           y_axis_ratio=TRUE,
                            plotit=FALSE) {
   # ideal
   ordered_data <- input_data[order(input_data[,ideal_order_column_name], input_data[,treat_column_name], decreasing=TRUE),]
@@ -55,9 +57,21 @@ qini_from_data <- function(preds,
   }
   
   if (plotit == TRUE) {
-    plot(0:length(q.curve.ideal), c(0, q.curve.ideal), type="l", col="black", xlab="customers", ylab="conversions")
-    points(0:length(q.curve.ideal), c(0, q.curve.real), type="l", col="blue")
-    lines(c(0,length(q.curve.ideal)), c(0, q.curve.ideal[length(q.curve.ideal)]), col="red")
+    x_max <- length(q.curve.ideal)
+    x_seq <- 0:x_max
+    if (y_axis_ratio) {
+      q.curve.ideal <- q.curve.ideal / length(q.curve.ideal)
+      q.curve.real <- q.curve.real / length(q.curve.ideal)
+    }
+    if (x_axis_ratio) {
+      x_seq <- x_seq / length(q.curve.ideal)
+      x_max <- x_max / length(q.curve.ideal)
+    }
+    xlab = paste("customers", ifelse(x_axis_ratio == TRUE, "(ratio)", "(total)"))
+    ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of total customers)", "(total)"))
+    plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab)
+    points(x_seq, c(0, q.curve.real), type="l", col="blue")
+    lines(c(0,x_max), c(0, q.curve.ideal[length(q.curve.ideal)]), col="red")
   }
   # area of the square with heigh equals to the the number of conversions
   square_area <- length(q.curve.ideal)*q.curve.ideal[length(q.curve.ideal)]
