@@ -39,7 +39,9 @@ qini_from_data <- function(preds,
                            treat_column_name="ct",
                            x_axis_ratio=FALSE,
                            y_axis_ratio=TRUE,
-                           plotit=FALSE) {
+                           plotit=FALSE,
+                           print_auc=TRUE,
+                           main_title=NULL) {
   # ideal
   ordered_data <- input_data[order(input_data[,ideal_order_column_name], input_data[,treat_column_name], decreasing=TRUE),]
   q.curve.ideal <- get_qini_curve_values(ordered_data, results_column_name, treat_column_name)
@@ -56,6 +58,11 @@ qini_from_data <- function(preds,
     stop("Check that length of input data corresponds to length of predictions")
   }
   
+  # area of the square with heigh equals to the the number of conversions
+  square_area <- abs(length(q.curve.ideal)*q.curve.ideal[length(q.curve.ideal)])
+  # Simpson's rule for area
+  result <- (sum(diff(1:length(q.curve.real))*rollmean(q.curve.real, 2))-square_area/2)/square_area
+
   if (plotit == TRUE) {
     x_max <- length(q.curve.ideal)
     x_seq <- 0:x_max
@@ -72,11 +79,16 @@ qini_from_data <- function(preds,
     plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab)
     points(x_seq, c(0, q.curve.real), type="l", col="blue")
     lines(c(0,x_max), c(0, q.curve.ideal[length(q.curve.ideal)]), col="red")
+    if (! is.null(main_title)) {
+      title(main_title)
+    }
+    if (print_auc == TRUE) {
+      legend("bottomright", paste("area of uplift", 
+                                  round(result, 4), 
+                                  "     "), cex=0.75)
+    }
   }
-  # area of the square with heigh equals to the the number of conversions
-  square_area <- length(q.curve.ideal)*q.curve.ideal[length(q.curve.ideal)]
-  # Simpson's rule for area
-  return((sum(diff(1:length(q.curve.real))*rollmean(q.curve.real, 2))-square_area/2)/square_area)
+  return(result)
 }
 
 # support function: calculates values of the curve, penalizing if control element converts

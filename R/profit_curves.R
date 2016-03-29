@@ -12,11 +12,13 @@ cumulative_response <- function(preds,
                                 main_title=NULL,
                                 x_axis_ratio=FALSE,
                                 y_axis_ratio=TRUE,
+                                plotit=TRUE,
                                 print_auc=TRUE,
-                                plotit=TRUE) {
+                                print_max=TRUE) {
   ordered_data <- input_data[order(preds, decreasing=TRUE),]
   q.curve.real <- get_cum_curve_values(ordered_data, results_column_name)
-  return(base_curve(q.curve.real, main_title, x_axis_ratio, y_axis_ratio, print_auc, plotit))
+  return(base_curve(q.curve.real, main_title, x_axis_ratio, y_axis_ratio, plotit, print_auc, print_max,
+                    area_lab="area over random"))
 }
 
 # similar to cumulative response, but penalizing as in qini curve
@@ -28,11 +30,12 @@ cum_penalized_curve <- function(preds,
                                 main_title=NULL,
                                 x_axis_ratio=FALSE,
                                 y_axis_ratio=TRUE,
+                                plotit=TRUE,
                                 print_auc=TRUE,
-                                plotit=TRUE) {
+                                print_max=TRUE) {
   ordered_data <- input_data[order(preds, decreasing=TRUE),]
   q.curve.real <- get_qini_curve_values(ordered_data, results_column_name, treat_column_name)
-  return(base_curve(q.curve.real, main_title, x_axis_ratio, y_axis_ratio, print_auc, plotit))
+  return(base_curve(q.curve.real, main_title, x_axis_ratio, y_axis_ratio, plotit, print_auc, print_max))
 }
 
 # accumulated profits taking into account profit of true positive and
@@ -41,15 +44,16 @@ profit_curve <- function(preds,
                          input_data,
                          results_column_name,
                          profit.tp,
-                         profit.fp,
+                         cost.fp,
                          main_title=NULL,
                          x_axis_ratio=TRUE,
+                         plotit=TRUE,
                          print_auc=TRUE,
-                         plotit=TRUE) {
+                         print_max=TRUE) {
   ordered_data <- input_data[order(preds, decreasing=TRUE),]
-  q.curve.real <- get_profit_curve_values(ordered_data, results_column_name, profit.tp, profit.fp)
+  q.curve.real <- get_profit_curve_values(ordered_data, results_column_name, profit.tp, cost.fp)
   return(base_curve(q.curve.real,
-                    main_title, x_axis_ratio, TRUE, print_auc, plotit,
+                    main_title, x_axis_ratio, TRUE, plotit, print_auc, print_max,
                     alt_ylab="accumulated benefit per targeted customer"))
 }
 
@@ -61,20 +65,27 @@ profit_penalized_curve <- function(preds,
                                    treat_column_name,
                                    profit.tp,
                                    targeting.cost,
-                                   profit.fp,
+                                   cost.fp,
                                    main_title=NULL,
                                    x_axis_ratio=TRUE,
+                                   plotit=TRUE,
                                    print_auc=TRUE,
-                                   plotit=TRUE) {
+                                   print_max=TRUE,
+                                   show_add_curve=FALSE) {
   ordered_data <- input_data[order(preds, decreasing=TRUE),]
   # profits from the targeted customers (i.e. per value of x axis)
-  q.curve.real <- get_profit_curve_values(ordered_data, results_column_name, profit.tp - targeting.cost, profit.fp)
+  q.curve.real <- get_profit_curve_values(ordered_data, results_column_name, profit.tp - targeting.cost, cost.fp)
   # profits from customers in the control group (i.e. remaining customers in target group that convert per value of x axis)
   q.control.profit <- get_profit_curve_control_values(ordered_data, results_column_name, treat_column_name, profit.tp)
+  if (show_add_curve == TRUE) {
+    add_curve = q.control.profit / length(q.curve.real)
+  } else {
+    add_curve = NULL
+  }
   return(base_curve(q.curve.real + q.control.profit,
-                    main_title, x_axis_ratio, TRUE, print_auc, plotit, 
+                    main_title, x_axis_ratio, TRUE, plotit, print_auc, print_max,
                     alt_ylab="accumulated benefit per targeted customer",
-                    add_curve=q.control.profit / length(q.curve.real)))
+                    add_curve=add_curve))
 }
 
 # TODO: use objects in R
@@ -82,11 +93,13 @@ base_curve <- function(q.curve.real,
                        main_title=NULL,
                        x_axis_ratio=FALSE,
                        y_axis_ratio=TRUE,
-                       print_auc=TRUE,
                        plotit=TRUE,
+                       print_auc=TRUE,
+                       print_max=TRUE,
                        alt_xlab=NULL,
                        alt_ylab=NULL,
-                       add_curve=NULL) {
+                       add_curve=NULL,
+                       area_lab="area of uplift") {
   # calculate area under the curve
   # area of the square with heigh equals to the the number of conversions
   square_area <- abs(length(q.curve.real)*q.curve.real[length(q.curve.real)])
@@ -113,23 +126,26 @@ base_curve <- function(q.curve.real,
     } else {
       ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of total customers)", "(total)"))
     }
-    plot(x_seq, c(0, q.curve.real), type="l", col="blue", xlab=xlab, ylab=ylab)
+    plot(x_seq, c(q.curve.real[1], q.curve.real), type="l", col="blue", xlab=xlab, ylab=ylab,
+         ylim=c(0, max(q.curve.real)))
     lines(c(0,x_max), c(0, q.curve.real[length(q.curve.real)]), col="red")
     if (! is.null(add_curve)) {
-      lines(x_seq, c(0, add_curve), type="l", col="black", lty=2)
+      lines(x_seq, c(add_curve[1], add_curve), type="l", col="black", lty=2)
     }
     if (! is.null(main_title)) {
       title(main_title)
     }
     if (print_auc == TRUE) {
-      legend("bottomright", paste("area of uplift", 
+      legend("bottomright", paste(area_lab, 
                                   round(result, 4), 
-                                  "                "), cex=0.75)
+                                  "     "), cex=0.75)
+    }
+    if (print_max == TRUE) {
       legend("bottom", paste("maximum y", 
                              round(max(q.curve.real), 2), 
                              " for x ",
-                             round(x_seq[which(q.curve.real == max(q.curve.real))], 2),
-                             "                "), cex=0.75)
+                             round(min(x_seq[which(q.curve.real == max(q.curve.real))]), 2),
+                             "      "), cex=0.75)
     }
   }
   return(result)
@@ -145,10 +161,10 @@ get_cum_curve_values <- function(ordered_data,
 get_profit_curve_values <- function(ordered_data,
                                     results_column_name,
                                     profit.tp,
-                                    profit.fp) {
+                                    cost.fp) {
   q.tp <- cumsum(ifelse(ordered_data[,results_column_name] == 1, profit.tp, 0))
-  q.fp <- cumsum(ifelse(ordered_data[,results_column_name] == 0, profit.fp, 0))
-  return(q.tp + q.fp)
+  q.fp <- cumsum(ifelse(ordered_data[,results_column_name] == 0, cost.fp, 0))
+  return(q.tp - q.fp)
 }
 
 get_profit_curve_control_values <- function(ordered_data,
