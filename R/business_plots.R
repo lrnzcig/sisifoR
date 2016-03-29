@@ -1,6 +1,8 @@
 ################################
 # utilities for generating business plots 
 # for classification problems
+#
+# DEPRECATED
 ################################
 
 
