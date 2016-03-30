@@ -47,14 +47,20 @@ profit_curve <- function(preds,
                          cost.fp,
                          main_title=NULL,
                          x_axis_ratio=TRUE,
+                         y_axis_ratio=TRUE,
                          plotit=TRUE,
                          print_auc=TRUE,
                          print_max=TRUE) {
   ordered_data <- input_data[order(preds, decreasing=TRUE),]
   q.curve.real <- get_profit_curve_values(ordered_data, results_column_name, profit.tp, cost.fp)
+  if (y_axis_ratio == TRUE) {
+    alt_ylab = "accumulated benefit / total # of customers"
+  } else {
+    alt_ylab = "accumulated benefit"
+  }
   return(base_curve(q.curve.real,
-                    main_title, x_axis_ratio, TRUE, plotit, print_auc, print_max,
-                    alt_ylab="accumulated benefit per targeted customer"))
+                    main_title, x_axis_ratio, y_axis_ratio, plotit, print_auc, print_max,
+                    alt_ylab=alt_ylab))
 }
 
 # same as above, but adding a targeting cost
@@ -68,6 +74,7 @@ profit_penalized_curve <- function(preds,
                                    cost.fp,
                                    main_title=NULL,
                                    x_axis_ratio=TRUE,
+                                   y_axis_ratio=TRUE,
                                    plotit=TRUE,
                                    print_auc=TRUE,
                                    print_max=TRUE,
@@ -82,9 +89,14 @@ profit_penalized_curve <- function(preds,
   } else {
     add_curve = NULL
   }
+  if (y_axis_ratio == TRUE) {
+    alt_ylab = "accumulated benefit / total # of customers"
+  } else {
+    alt_ylab = "accumulated benefit"
+  }
   return(base_curve(q.curve.real + q.control.profit,
-                    main_title, x_axis_ratio, TRUE, plotit, print_auc, print_max,
-                    alt_ylab="accumulated benefit per targeted customer",
+                    main_title, x_axis_ratio, y_axis_ratio, plotit, print_auc, print_max,
+                    alt_ylab=alt_ylab,
                     add_curve=add_curve))
 }
 
@@ -126,9 +138,8 @@ base_curve <- function(q.curve.real,
     } else {
       ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of total customers)", "(total)"))
     }
-    plot(x_seq, c(q.curve.real[1], q.curve.real), type="l", col="blue", xlab=xlab, ylab=ylab,
-         ylim=c(0, max(q.curve.real)))
-    lines(c(0,x_max), c(0, q.curve.real[length(q.curve.real)]), col="red")
+    plot(x_seq, c(q.curve.real[1], q.curve.real), type="l", col="blue", xlab=xlab, ylab=ylab)
+    lines(c(0,x_max), c(q.curve.real[1], q.curve.real[length(q.curve.real)]), col="red")
     if (! is.null(add_curve)) {
       lines(x_seq, c(add_curve[1], add_curve), type="l", col="black", lty=2)
     }
