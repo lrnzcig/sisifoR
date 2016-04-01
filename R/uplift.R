@@ -67,15 +67,17 @@ qini_from_data <- function(preds,
     x_max <- length(q.curve.ideal)
     x_seq <- 0:x_max
     if (y_axis_ratio) {
-      q.curve.ideal <- q.curve.ideal / length(q.curve.ideal)
-      q.curve.real <- q.curve.real / length(q.curve.ideal)
+      # times 2, assuming that the size of control & treatment groups are equal,
+      # in order to scale the ratios to the size of the group, instead of the total
+      q.curve.ideal <- q.curve.ideal * 2/ length(q.curve.ideal)
+      q.curve.real <- q.curve.real * 2 / length(q.curve.ideal)
     }
     if (x_axis_ratio) {
       x_seq <- x_seq / length(q.curve.ideal)
       x_max <- x_max / length(q.curve.ideal)
     }
     xlab = paste("customers", ifelse(x_axis_ratio == TRUE, "(ratio)", "(total)"))
-    ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of total customers)", "(total)"))
+    ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of customers in targeted group)", "(total)"))
     plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab)
     points(x_seq, c(0, q.curve.real), type="l", col="blue")
     lines(c(0,x_max), c(0, q.curve.ideal[length(q.curve.ideal)]), col="red")
