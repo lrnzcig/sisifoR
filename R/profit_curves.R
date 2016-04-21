@@ -125,9 +125,10 @@ base_curve <- function(q.curve.real,
                        area_lab="area of uplift") {
   # calculate area under the curve
   # area of the square with heigh equals to the the number of conversions
-  square_area <- abs(length(q.curve.real)*q.curve.real[length(q.curve.real)])
+  square_area <- abs(length(q.curve.real)*(q.curve.real[1] - q.curve.real[length(q.curve.real)]))
+  square_below_area <- length(q.curve.real)*min(q.curve.real[1], q.curve.real[length(q.curve.real)])
   # Simpson's rule for area
-  result <- (sum(diff(1:length(q.curve.real))*rollmean(q.curve.real, 2))-square_area/2)/square_area
+  result <- (sum(diff(1:length(q.curve.real))*rollmean(q.curve.real, 2))-square_area/2-square_below_area)/square_area
   
   if (plotit == TRUE) {
     x_max <- length(q.curve.real)
