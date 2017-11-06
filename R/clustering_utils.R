@@ -1,24 +1,32 @@
+# plots 4 time series from its names
 plot_4series <- function(list,
                          name1, name2, name3, name4,
                          cluster_name,
-                         ylim=c(75,100)) {
+                         ylim=c(75,100),
+                         ylab="spo2") {
   par(mfrow=c(4,1))
   plot(list[[name1]], type="l", main=cluster_name,
-       xlab=name1, ylim=ylim)
+       xlab=name1, ylim=ylim, ylab=ylab)
+  abline(a=90, b=0, col="red")
   if (name2 != "") {
     plot(list[[name2]], type="l",
-         xlab=name2, ylim=ylim)
+         xlab=name2, ylim=ylim, ylab=ylab)
+    abline(a=90, b=0, col="red")
   }
   if (name3 != "") {
     plot(list[[name3]], type="l",
-         xlab=name3, ylim=ylim)
+         xlab=name3, ylim=ylim, ylab=ylab)
+    abline(a=90, b=0, col="red")
   }
   if (name4 != "") {
     plot(list[[name4]], type="l",
-         xlab=name4, ylim=ylim)
+         xlab=name4, ylim=ylim, ylab=ylab)
+    abline(a=90, b=0, col="red")
   }
 }
 
+# browses over the time series of the cluster object for spectral clustering
+# i.e. all series in order
 browse_spectral_clustering <- function(cluster_object, list_of_series,
                                        ylim=c(75,100)) {
   i <- 0
@@ -58,6 +66,8 @@ browse_spectral_clustering <- function(cluster_object, list_of_series,
   }
 }
 
+# browses over the time series of the cluster object 
+# for the different clusters at a certain height of the dendogram
 browse_cutree_clustering <- function(cluster_object, list_of_series, height,
                                      ylim=c(75,100)) {
   cutted <- cutree(cluster_object, h=height)
