@@ -41,7 +41,8 @@ qini_from_data <- function(preds,
                            y_axis_ratio=TRUE,
                            plotit=FALSE,
                            print_auc=TRUE,
-                           main_title=NULL) {
+                           main_title=NULL,
+                           ylim=NULL) {
   # ideal
   ordered_data <- input_data[order(input_data[,ideal_order_column_name], input_data[,treat_column_name], decreasing=TRUE),]
   q.curve.ideal <- get_qini_curve_values(ordered_data, results_column_name, treat_column_name)
@@ -78,7 +79,11 @@ qini_from_data <- function(preds,
     }
     xlab = paste("customers", ifelse(x_axis_ratio == TRUE, "(ratio)", "(total)"))
     ylab = paste("conversions", ifelse(y_axis_ratio == TRUE, "(ratio of customers in targeted group)", "(total)"))
-    plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab)
+    if (is.null(ylim)) {
+      plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab)
+    } else {
+      plot(x_seq, c(0, q.curve.ideal), type="l", col="black", xlab=xlab, ylab=ylab, ylim=ylim)
+    }
     points(x_seq, c(0, q.curve.real), type="l", col="blue")
     lines(c(0,x_max), c(0, q.curve.ideal[length(q.curve.ideal)]), col="red")
     if (! is.null(main_title)) {
